@@ -8,6 +8,8 @@ import React, {
 
 import AsyncStorage from '@react-native-community/async-storage';
 
+import produce from 'immer';
+
 interface Product {
   id: string;
   title: string;
@@ -30,23 +32,66 @@ const CartProvider: React.FC = ({ children }) => {
 
   useEffect(() => {
     async function loadProducts(): Promise<void> {
-      // TODO LOAD ITEMS FROM ASYNC STORAGE
+      const storageProducts = await AsyncStorage.getItem(
+        '@GoMarketplace:products',
+      );
+      if (storageProducts) {
+        setProducts(JSON.parse(storageProducts));
+      }
     }
-
     loadProducts();
   }, []);
 
-  const addToCart = useCallback(async product => {
-    // TODO ADD A NEW ITEM TO THE CART
-  }, []);
+  useEffect(() => {
+    async function updateStoredProducts(): Promise<void> {
+      await AsyncStorage.setItem(
+        '@GoMarketplace:products',
+        JSON.stringify(products),
+      );
+    }
 
-  const increment = useCallback(async id => {
-    // TODO INCREMENTS A PRODUCT QUANTITY IN THE CART
-  }, []);
+    updateStoredProducts();
+  }, [products]);
 
-  const decrement = useCallback(async id => {
-    // TODO DECREMENTS A PRODUCT QUANTITY IN THE CART
-  }, []);
+  const addToCart = useCallback(
+    async product => {
+      setProducts(
+        produce(products, draft => {
+          const productIndex = products.findIndex(p => p.id === product.id);
+          if (productIndex >= 0) {
+            draft[productIndex].quantity += 1;
+          } else {
+            draft.push({ ...product, quantity: 1 });
+          }
+        }),
+      );
+    },
+    [products],
+  );
+
+  const increment = useCallback(
+    async id => {
+      setProducts(
+        produce(products, draft => {
+          const productIndex = draft.findIndex(p => p.id === id);
+          draft[productIndex].quantity += 1;
+        }),
+      );
+    },
+    [products],
+  );
+
+  const decrement = useCallback(
+    async id => {
+      setProducts(
+        produce(products, draft => {
+          const productIndex = draft.findIndex(p => p.id === id);
+          draft[productIndex].quantity -= 1;
+        }),
+      );
+    },
+    [products],
+  );
 
   const value = React.useMemo(
     () => ({ addToCart, increment, decrement, products }),
